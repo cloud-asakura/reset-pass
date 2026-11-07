@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Nouveau mot de passe – IPTV Lite</title>
+<style>
+:root{--bg:#10131a;--panel:#1a1f2b;--line:#2c3446;--txt:#eef1f6;--mut:#9aa4b8;--acc:#4f8cff;--err:#ff8a6b;--ok:#5fd08a}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;background:var(--bg);color:var(--txt);font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+body{display:flex;align-items:center;justify-content:center;padding:24px}
+main{width:100%;max-width:420px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:28px}
+h1{font-size:22px;margin:0 0 6px}
+p{margin:0 0 18px;color:var(--mut)}
+label{display:block;font-size:14px;color:var(--mut);margin:0 0 6px}
+input{width:100%;padding:13px 14px;margin:0 0 16px;border-radius:9px;border:1px solid var(--line);background:#0d1017;color:var(--txt);font:inherit}
+input:focus,button:focus-visible{outline:2px solid var(--acc);outline-offset:1px}
+button{width:100%;padding:13px;border:0;border-radius:9px;background:var(--acc);color:#fff;font:inherit;font-weight:600;cursor:pointer}
+button:disabled{opacity:.6;cursor:default}
+#msg{min-height:24px;margin:14px 0 0;font-size:15px}
+.err{color:var(--err)}.ok{color:var(--ok)}
+.hide{display:none}
+</style>
+</head>
+<body>
+<main>
+  <h1>Nouveau mot de passe</h1>
+  <p id="sub">Choisis un nouveau mot de passe pour ton compte IPTV Lite.</p>
+
+  <div id="form">
+    <label for="p1">Nouveau mot de passe (6 caractères minimum)</label>
+    <input id="p1" type="password" autocomplete="new-password">
+    <label for="p2">Confirme le mot de passe</label>
+    <input id="p2" type="password" autocomplete="new-password">
+    <button id="go">Enregistrer</button>
+  </div>
+  <div id="msg" role="status"></div>
+</main>
+
+<script>
+/* ===== À RENSEIGNER : mêmes valeurs que CLOUD dans index.html ===== */
+var SUPABASE_URL='https://efpgsmnojnpihcskfzsj.supabase.co';
+var SUPABASE_KEY='sb_publishable_lyKe_LFUQDqcmF3kMOoKuw_bPCAsVS9';
+
+var $=function(s){return document.querySelector(s)};
+var msg=$('#msg'),form=$('#form'),sub=$('#sub'),go=$('#go');
+
+function show(t,cls){msg.textContent=t;msg.className=cls||''}
+
+/* Supabase renvoie le jeton dans le fragment de l'URL : #access_token=...&type=recovery */
+var hp=new URLSearchParams(location.hash.replace(/^#/,''));
+var token=hp.get('access_token');
+var errCode=hp.get('error_code');
+
+/* On retire le jeton de la barre d'adresse (historique) */
+if(history.replaceState)history.replaceState(null,'',location.pathname);
+
+if(errCode||!token||hp.get('type')!=='recovery'){
+  form.classList.add('hide');
+  sub.textContent='';
+  show(errCode==='otp_expired'
+    ?'Ce lien a expiré ou a déjà été utilisé. Retourne dans l’application et demande un nouveau lien avec « Mot de passe oublié ».'
+    :'Lien invalide. Ouvre cette page depuis le lien reçu par e-mail, ou demande un nouveau lien depuis l’application.','err');
+}
+
+function save(){
+  var a=$('#p1').value,b=$('#p2').value;
+  if(a.length<6){show('Le mot de passe doit contenir au moins 6 caractères.','err');return}
+  if(a!==b){show('Les deux mots de passe ne sont pas identiques.','err');return}
+  go.disabled=true;show('Enregistrement…');
+  fetch(SUPABASE_URL+'/auth/v1/user',{
+    method:'PUT',
+    headers:{apikey:SUPABASE_KEY,Authorization:'Bearer '+token,'Content-Type':'application/json'},
+    body:JSON.stringify({password:a})
+  }).then(function(r){
+    return r.json().catch(function(){return{}}).then(function(j){
+      if(!r.ok)throw new Error(j.error_description||j.msg||j.message||('HTTP '+r.status));
+      form.classList.add('hide');sub.textContent='';
+      show('Mot de passe modifié. Tu peux retourner dans l’application et te connecter avec le nouveau.','ok');
+    });
+  }).catch(function(e){
+    go.disabled=false;
+    show('Échec : '+(e&&e.message||'réseau'),'err');
+  });
+}
+go.addEventListener('click',save);
+$('#p2').addEventListener('keydown',function(e){if(e.key==='Enter')save()});
+</script>
+</body>
+</html>
